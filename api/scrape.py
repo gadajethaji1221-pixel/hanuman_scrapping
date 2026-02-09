@@ -1,43 +1,46 @@
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
+import json
 
 def handler(request):
-    # Get URL from query parameter
-    url = request.args.get("url")
+    # Target URL (hardcoded since you said function only)
+    URL = "https://salangpurhanumanji.org/dev-darshan/dev-darshan-detail/dev-darshan.php?date=2026-01-28"
 
-    if not url:
-        return {
-            "statusCode": 400,
-            "body": "Missing ?url= parameter"
-        }
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
+        response = requests.get(URL, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
 
-        r = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(r.text, "html.parser")
-
+        allowed_ext = (".jpg", ".jpeg")
+        seen = set()
         images = []
 
         for img in soup.find_all("img"):
             src = img.get("src")
-            if src:
-                full_url = urljoin(url, src)
-                images.append(full_url)
+            if not src:
+                continue
+
+            full_url = urljoin(URL, src)
+
+            path = urlparse(full_url).path.lower()
+            if path.endswith(allowed_ext):
+                if full_url not in seen:
+                    seen.add(full_url)
+                    images.append(full_url)
 
         return {
             "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json"
-            },
-            "body": str(images)
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(images)
         }
 
     except Exception as e:
         return {
             "statusCode": 500,
-            "body": str(e)
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": str(e)})
         }
